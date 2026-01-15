@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
+    "lint": "eslint .",
+    "fix": "eslint . --fix",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -11,9 +14,18 @@
   "license": "ISC",
   "packageManager": "pnpm@10.28.0",
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@stylistic/eslint-plugin": "^5.7.0",
     "@types/node": "^25.0.8",
+    "eslint": "^9.39.2",
+    "globals": "^17.0.0",
+    "jiti": "^2.6.1",
     "rimraf": "^6.1.2",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.53.0"
+  },
+  "dependencies": {
+    "promises-aplus-tests": "^2.1.2"
   }
 }
