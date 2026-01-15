@@ -12,7 +12,15 @@ export class APromise {
     #reason?: unknown;
 
     [util.inspect.custom]() {
-        return { state: this.state }; // Only show state in Node console
+        if (this.state === "pending") {
+            return `Promise{ <${this.state}> }`;
+        }
+        else if (this.state === "rejected") {
+            return `Promise{ ${this.#reason} }`;
+        }
+        else {
+            return `Promise{ ${this.#value} }`;
+        }
     }
 
     constructor(init: (resolve: typeof this.resolve, reject: typeof this.reject) => void) {
@@ -22,7 +30,6 @@ export class APromise {
         this.#onRejectedList = [];
 
         try {
-            console.log("call init");
             init.call(this, this.resolve, this.reject);
         }
         catch (error) {
@@ -35,22 +42,25 @@ export class APromise {
         if (this.state !== "pending") return;
         this.state = "fulfilled";
         this.#value = value;
-        for (const item of this.#onFulfilledList) {
-            item.call(undefined, this.#value);
-        }
+        setTimeout(() => {
+            for (const item of this.#onFulfilledList) {
+                item.call(undefined, this.#value);
+            }
+        });
     };
 
     onRejected = (reason?: unknown) => {
         if (this.state !== "pending") return;
         this.state = "rejected";
         this.#reason = reason;
-        for (const item of this.#onRejectedList) {
-            item.call(undefined, this.#reason);
-        }
+        setTimeout(() => {
+            for (const item of this.#onRejectedList) {
+                item.call(undefined, this.#reason);
+            }
+        });
     };
 
     resolve = (x: unknown) => {
-        console.log("call resolve with value", x);
         if (x === this) {
             this.reject(new TypeError("can not resolve promise itself"));
             return;
@@ -102,7 +112,6 @@ export class APromise {
     };
 
     reject = (x: unknown) => {
-        console.log("call reject with reason", x);
         this.onRejected(x);
     };
 
@@ -119,22 +128,40 @@ export class APromise {
     };
 
     then = (onFulfilled: AnyFunction, onRejected: AnyFunction) => {
-        console.log("call then");
-        if (onFulfilled instanceof Function) {
-            this.#onFulfilledList.push(onFulfilled);
-        }
-
-        if (onRejected instanceof Function) {
-            this.#onRejectedList.push(onRejected);
-        }
-
         const promise = new APromise((resolve, reject) => {
-            this.#onFulfilledList.push(() => {
-                resolve(this.#value);
-            });
-            this.#onRejectedList.push(() => {
-                reject(this.#reason);
-            });
+            if (onFulfilled instanceof Function) {
+                this.#onFulfilledList.push((...args: unknown[]) => {
+                    try {
+                        const x = onFulfilled(...args);
+                        resolve(x);
+                    }
+                    catch (e) {
+                        reject(e);
+                    }
+                });
+            }
+            else {
+                this.#onFulfilledList.push(() => {
+                    resolve(this.#value);
+                });
+            }
+
+            if (onRejected instanceof Function) {
+                this.#onRejectedList.push((...args: unknown[]) => {
+                    try {
+                        const x = onRejected(...args);
+                        resolve(x);
+                    }
+                    catch (e) {
+                        reject(e);
+                    }
+                });
+            }
+            else {
+                this.#onRejectedList.push(() => {
+                    reject(this.#reason);
+                });
+            }
         });
 
         return promise;
