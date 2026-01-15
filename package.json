@@ -7,7 +7,8 @@
   "scripts": {
     "lint": "eslint .",
     "fix": "eslint . --fix",
-    "test": "tsc&& node dist/src/index.js"
+    "run": "tsc&& node dist/src/index.js",
+    "test":"tsc src/adapter.ts --module CommonJS --target ESNext --outDir dist --esModuleInterop true&&cd dist&&npm init -y&&promises-aplus-tests adapter.js"
   },
   "keywords": [],
   "author": "",
