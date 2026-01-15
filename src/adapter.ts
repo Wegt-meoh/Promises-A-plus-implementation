@@ -1,6 +1,6 @@
 import { APromise } from "./promiseAPlus.js";
 
-export const adapter = {
+const adapter = {
     deferred: () => {
         const promise = new APromise(() => {});
         return {
@@ -10,3 +10,5 @@ export const adapter = {
         };
     },
 };
+
+module.exports = adapter;
