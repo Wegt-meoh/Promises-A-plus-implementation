@@ -4,7 +4,7 @@ type State = "pending" | "fulfilled" | "rejected";
 type AnyFunction = (...args: unknown[]) => unknown;
 
 export class APromise {
-    state: State;
+    #state: State;
     #onFulfilledList: Array<AnyFunction>;
     #onRejectedList: Array<AnyFunction>;
     #hasCalled;
@@ -12,10 +12,10 @@ export class APromise {
     #reason?: unknown;
 
     [util.inspect.custom]() {
-        if (this.state === "pending") {
-            return `Promise{ <${this.state}> }`;
+        if (this.#state === "pending") {
+            return `Promise{ <${this.#state}> }`;
         }
-        else if (this.state === "rejected") {
+        else if (this.#state === "rejected") {
             return `Promise{ ${this.#reason} }`;
         }
         else {
@@ -24,7 +24,7 @@ export class APromise {
     }
 
     constructor(init: (resolve: typeof this.resolve, reject: typeof this.reject) => void) {
-        this.state = "pending";
+        this.#state = "pending";
         this.#hasCalled = false;
         this.#onFulfilledList = [];
         this.#onRejectedList = [];
@@ -39,8 +39,8 @@ export class APromise {
     }
 
     onFulfilled = (value?: unknown) => {
-        if (this.state !== "pending") return;
-        this.state = "fulfilled";
+        if (this.#state !== "pending") return;
+        this.#state = "fulfilled";
         this.#value = value;
         setTimeout(() => {
             for (const item of this.#onFulfilledList) {
@@ -50,8 +50,8 @@ export class APromise {
     };
 
     onRejected = (reason?: unknown) => {
-        if (this.state !== "pending") return;
-        this.state = "rejected";
+        if (this.#state !== "pending") return;
+        this.#state = "rejected";
         this.#reason = reason;
         setTimeout(() => {
             for (const item of this.#onRejectedList) {
@@ -67,15 +67,15 @@ export class APromise {
         }
 
         if (x instanceof APromise) {
-            if (x.state === "fulfilled") {
+            if (x.#state === "fulfilled") {
                 this.onFulfilled(x.#value);
             }
 
-            if (x.state === "rejected") {
+            if (x.#state === "rejected") {
                 this.onRejected(x.#reason);
             }
 
-            if (x.state === "pending") {
+            if (x.#state === "pending") {
                 x.then(
                     (value: unknown) => { this.resolve(value); },
                     (reason: unknown) => { this.reject(reason); },
