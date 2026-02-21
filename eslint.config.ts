@@ -21,4 +21,5 @@ export default defineConfig([
             "@stylistic/type-named-tuple-spacing": "error",
         },
     },
+    { ignores: ["dist/**"] },
 ]);
