@@ -1,4 +1,4 @@
-import { APromise } from "./promiseAPlus.js";
+import { APromise } from "./promiseAPlus";
 
 const adapter = {
     deferred: () => {

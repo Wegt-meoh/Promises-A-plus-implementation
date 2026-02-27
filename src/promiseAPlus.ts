@@ -35,29 +35,20 @@ export class APromise {
         catch (error) {
             this.reject(error);
         }
-        return this;
     }
 
     onFulfilled = (value?: unknown) => {
         if (this.#state !== "pending") return;
         this.#state = "fulfilled";
         this.#value = value;
-        setTimeout(() => {
-            for (const item of this.#onFulfilledList) {
-                item.call(undefined, this.#value);
-            }
-        });
+        this.#onFulfilledList.forEach(fn => fn());
     };
 
     onRejected = (reason?: unknown) => {
         if (this.#state !== "pending") return;
         this.#state = "rejected";
         this.#reason = reason;
-        setTimeout(() => {
-            for (const item of this.#onRejectedList) {
-                item.call(undefined, this.#reason);
-            }
-        });
+        this.#onRejectedList.forEach(fn => fn());
     };
 
     resolve = (x: unknown) => {
@@ -84,10 +75,10 @@ export class APromise {
             return;
         }
 
-        if (x instanceof Function || x instanceof Object) {
+        if (typeof x === "function" || typeof x === "object") {
             try {
-                this.then = (x as APromise).then;
-                if (this.then instanceof Function) {
+                const retrivedThen = (x as APromise).then;
+                if (typeof retrivedThen === "function") {
                     try {
                         this.then.call(x, this.resolvePromise, this.rejectPromise);
                     }
@@ -127,39 +118,72 @@ export class APromise {
         this.reject(r);
     };
 
-    then = (onFulfilled: AnyFunction, onRejected: AnyFunction) => {
+    then = (onFulfilled?: (value: unknown) => void | null, onRejected?: (value: unknown) => void | null) => {
         const promise = new APromise((resolve, reject) => {
-            if (onFulfilled instanceof Function) {
-                this.#onFulfilledList.push((...args: unknown[]) => {
-                    try {
-                        const x = onFulfilled(...args);
-                        resolve(x);
+            if (this.#state === "fulfilled") {
+                setTimeout(() => {
+                    if (typeof onFulfilled === "function") {
+                        try {
+                            const x = onFulfilled(this.#value);
+                            resolve(x);
+                        }
+                        catch (e) {
+                            reject(e);
+                        }
                     }
-                    catch (e) {
-                        reject(e);
+                    else {
+                        resolve(this.#value);
                     }
                 });
             }
-            else {
+            if (this.#state === "rejected") {
+                setTimeout(() => {
+                    if (typeof onRejected === "function") {
+                        try {
+                            const x = onRejected(this.#reason);
+                            resolve(x);
+                        }
+                        catch (e) {
+                            reject(e);
+                        }
+                    }
+                    else {
+                        reject(this.#reason);
+                    }
+                });
+            }
+            if (this.#state === "pending") {
                 this.#onFulfilledList.push(() => {
-                    resolve(this.#value);
+                    setTimeout(() => {
+                        if (typeof onFulfilled === "function") {
+                            try {
+                                const x = onFulfilled(this.#value);
+                                resolve(x);
+                            }
+                            catch (e) {
+                                reject(e);
+                            }
+                        }
+                        else {
+                            resolve(this.#value);
+                        }
+                    });
                 });
-            }
-
-            if (onRejected instanceof Function) {
-                this.#onRejectedList.push((...args: unknown[]) => {
-                    try {
-                        const x = onRejected(...args);
-                        resolve(x);
-                    }
-                    catch (e) {
-                        reject(e);
-                    }
-                });
-            }
-            else {
                 this.#onRejectedList.push(() => {
-                    reject(this.#reason);
+                    setTimeout(() => {
+                        if (typeof onRejected === "function") {
+                            try {
+                                const x = onRejected(this.#reason);
+                                resolve(x);
+                            }
+                            catch (e) {
+                                reject(e);
+                            }
+                        }
+                        else {
+                            resolve(this.#reason);
+                        }
+                    });
                 });
             }
         });
