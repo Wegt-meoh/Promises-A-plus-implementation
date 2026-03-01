@@ -1,7 +1,16 @@
+import assert from "node:assert";
 import { APromise } from "./promiseAPlus.js";
 
-const a = new APromise((res, rej) => res({ hello: 111 }));
-a.then(value => console.log("a", value));
-const b = new Promise(res => res({ heloo: 1111 }));
-b.then(value => console.log("b", value));
-console.log(a, b);
+const sential = { hello: "sdfdsf" };
+
+const a = new APromise((res) => {
+    res({ then: (resolvePromise: (x: unknown) => void, rejectPromise: (r: unknown) => void) => {
+        resolvePromise(sential);
+        rejectPromise(sential);
+    } });
+});
+
+a.then((value) => {
+    assert.strictEqual(value, sential);
+    console.log("succ");
+});
