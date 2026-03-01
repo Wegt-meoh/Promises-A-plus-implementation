@@ -122,9 +122,9 @@ export class APromise<T> {
         const promise = new APromise((resolve, reject) => {
             if (this.#state === "fulfilled") {
                 setTimeout(() => {
-                    if (typeof onFulfilled === "function") {
+                    if (typeof noThisOnFulfilled === "function") {
                         try {
-                            const x = onFulfilled(this.#value!);
+                            const x = noThisOnFulfilled(this.#value!);
                             resolve(x);
                         }
                         catch (e) {
@@ -138,9 +138,9 @@ export class APromise<T> {
             }
             if (this.#state === "rejected") {
                 setTimeout(() => {
-                    if (typeof onRejected === "function") {
+                    if (typeof noThisOnRejected === "function") {
                         try {
-                            const x = onRejected(this.#reason);
+                            const x = noThisOnRejected(this.#reason);
                             resolve(x);
                         }
                         catch (e) {
@@ -155,9 +155,9 @@ export class APromise<T> {
             if (this.#state === "pending") {
                 this.#onFulfilledList.push(() => {
                     setTimeout(() => {
-                        if (typeof onFulfilled === "function") {
+                        if (typeof noThisOnFulfilled === "function") {
                             try {
-                                const x = onFulfilled(this.#value!);
+                                const x = noThisOnFulfilled(this.#value!);
                                 resolve(x);
                             }
                             catch (e) {
@@ -171,9 +171,9 @@ export class APromise<T> {
                 });
                 this.#onRejectedList.push(() => {
                     setTimeout(() => {
-                        if (typeof onRejected === "function") {
+                        if (typeof noThisOnRejected === "function") {
                             try {
-                                const x = onRejected(this.#reason);
+                                const x = noThisOnRejected(this.#reason);
                                 resolve(x);
                             }
                             catch (e) {
