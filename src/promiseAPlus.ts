@@ -2,78 +2,14 @@ import util from "util";
 
 type State = "pending" | "fulfilled" | "rejected";
 type AnyFunction = (...args: unknown[]) => unknown;
-type APromiseLike<T> = {
-    then<TResult1 = T, TResult2 = never>(onfulfilled: (value: T) => TResult1 | APromiseLike<TResult1> | undefined | null,
-        onRejected: (reason: unknown) => TResult2 | APromiseLike<TResult2> | undefined | null
-    ): APromiseLike<TResult1 | TResult2>
-};
-type AwaitPromiseLike<T> = T extends undefined | null ? T
-    : T extends object & {
-        then(onfulfilled: infer F, ...args: infer _): unknown
-    } ? F extends (value: infer V, ...args: infer _) => unknown ? AwaitPromiseLike<V>
-            : never
-        : T;
 
-export class APromise<T> {
+export class APromise {
     #state: State;
     #onFulfilledList: Array<AnyFunction>;
     #onRejectedList: Array<AnyFunction>;
-    #value?: T;
+    #hasCalled;
+    #value?: unknown;
     #reason?: unknown;
-
-    resolvePromise = (promise: APromise<T>, x: T | APromiseLike<T>, resolve: (value: T) => void, reject: (reason: unknown) => void) => {
-        if (promise === x) {
-            reject(new TypeError("can not resolve promise with itself."));
-            return;
-        }
-
-        if (x instanceof APromise) {
-            if (x.#state === "pending") {
-                x.then(resolve, reject);
-            }
-            else if (x.#state === "fulfilled") {
-                resolve(x.#value);
-            }
-            else {
-                reject(x.#reason);
-            }
-            return;
-        }
-
-        if (Object.prototype.toString.call(x) === "[object Object]" || Object.prototype.toString.call(x) === "[object Function]") {
-            try {
-                const retrivedThen = (x as APromise<T>).then;
-                if (Object.prototype.toString.call(retrivedThen) === "[object Function]") {
-                    let hasResolved = false;
-                    try {
-                        retrivedThen.call(x, (y) => {
-                            if (hasResolved) return;
-                            hasResolved = true;
-                            this.resolvePromise(promise, y, resolve, reject);
-                        }, (r) => {
-                            if (hasResolved) return;
-                            hasResolved = true;
-                            reject(r);
-                        });
-                    }
-                    catch (e) {
-                        if (!hasResolved) {
-                            reject(e);
-                        }
-                    }
-                }
-                else {
-                    this.onFulfilled(x as T);
-                }
-            }
-            catch (e) {
-                reject(e);
-            }
-            return;
-        }
-
-        this.onFulfilled(x as T);
-    };
 
     [util.inspect.custom]() {
         if (this.#state === "pending") {
@@ -87,24 +23,21 @@ export class APromise<T> {
         }
     }
 
-    constructor(init: (resolve: (x: T | APromiseLike<T>) => void, reject: (r: unknown) => void) => void) {
+    constructor(init: (resolve: typeof this.resolve, reject: typeof this.reject) => void) {
         this.#state = "pending";
+        this.#hasCalled = false;
         this.#onFulfilledList = [];
         this.#onRejectedList = [];
 
         try {
-            init.call(this, this.resolve, this.onRejected);
+            init.call(this, this.resolve, this.reject);
         }
-        catch (e) {
-            this.onRejected(e);
+        catch (error) {
+            this.reject(error);
         }
     }
 
-    resolve = (x: T | APromiseLike<T>) => {
-        this.resolvePromise(this, x, this.onFulfilled, this.onRejected);
-    };
-
-    onFulfilled = (value: T) => {
+    onFulfilled = (value?: unknown) => {
         if (this.#state !== "pending") return;
         this.#state = "fulfilled";
         this.#value = value;
@@ -118,13 +51,80 @@ export class APromise<T> {
         this.#onRejectedList.forEach(fn => fn());
     };
 
-    then = <TResult1 = T, TResult2 = never>(onFulfilled?: (value: T) => TResult1 | APromiseLike<TResult1> | undefined | null, onRejected?: (value: unknown) => TResult2 | APromiseLike<TResult2> | undefined | null) => {
+    resolve = (x: unknown) => {
+        if (x === this) {
+            this.reject(new TypeError("can not resolve promise itself"));
+            return;
+        }
+
+        if (x instanceof APromise) {
+            if (x.#state === "fulfilled") {
+                this.onFulfilled(x.#value);
+            }
+
+            if (x.#state === "rejected") {
+                this.onRejected(x.#reason);
+            }
+
+            if (x.#state === "pending") {
+                x.then(
+                    (value: unknown) => { this.resolve(value); },
+                    (reason: unknown) => { this.reject(reason); },
+                );
+            }
+            return;
+        }
+
+        if (typeof x === "function" || typeof x === "object") {
+            try {
+                const retrivedThen = (x as APromise).then;
+                if (typeof retrivedThen === "function") {
+                    try {
+                        this.then.call(x, this.resolvePromise, this.rejectPromise);
+                    }
+                    catch (e) {
+                        if (!this.#hasCalled) {
+                            this.reject(e);
+                        }
+                    }
+                }
+                else {
+                    this.onFulfilled(x);
+                }
+            }
+            catch (error) {
+                this.reject(error);
+            }
+
+            return;
+        }
+
+        this.onFulfilled(x);
+    };
+
+    reject = (x: unknown) => {
+        this.onRejected(x);
+    };
+
+    resolvePromise = (y: unknown) => {
+        if (this.#hasCalled) return;
+        this.#hasCalled = true;
+        this.resolve(y);
+    };
+
+    rejectPromise = (r: unknown) => {
+        if (this.#hasCalled) return;
+        this.#hasCalled = true;
+        this.reject(r);
+    };
+
+    then = (onFulfilled?: (value: unknown) => void | null, onRejected?: (value: unknown) => void | null) => {
         const promise = new APromise((resolve, reject) => {
             if (this.#state === "fulfilled") {
                 setTimeout(() => {
                     if (typeof onFulfilled === "function") {
                         try {
-                            const x = onFulfilled(this.#value!);
+                            const x = onFulfilled(this.#value);
                             resolve(x);
                         }
                         catch (e) {
@@ -157,7 +157,7 @@ export class APromise<T> {
                     setTimeout(() => {
                         if (typeof onFulfilled === "function") {
                             try {
-                                const x = onFulfilled(this.#value!);
+                                const x = onFulfilled(this.#value);
                                 resolve(x);
                             }
                             catch (e) {
@@ -181,7 +181,7 @@ export class APromise<T> {
                             }
                         }
                         else {
-                            reject(this.#reason);
+                            resolve(this.#reason);
                         }
                     });
                 });

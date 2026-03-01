@@ -5,7 +5,7 @@ const adapter = {
         const promise = new APromise(() => {});
         return {
             resolve: promise.resolve,
-            reject: promise.onRejected,
+            reject: promise.reject,
             promise,
         };
     },
