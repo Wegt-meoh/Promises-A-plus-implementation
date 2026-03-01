@@ -7,7 +7,6 @@ export class APromise {
     #state: State;
     #onFulfilledList: Array<AnyFunction>;
     #onRejectedList: Array<AnyFunction>;
-    #hasCalled;
     #value?: unknown;
     #reason?: unknown;
 
@@ -25,7 +24,6 @@ export class APromise {
 
     constructor(init: (resolve: typeof this.resolve, reject: typeof this.reject) => void) {
         this.#state = "pending";
-        this.#hasCalled = false;
         this.#onFulfilledList = [];
         this.#onRejectedList = [];
 
@@ -75,15 +73,25 @@ export class APromise {
             return;
         }
 
-        if (typeof x === "function" || typeof x === "object") {
+        if (Object.prototype.toString.call(x) === "[object Object]" || Object.prototype.toString.call(x) === "[object Function]") {
             try {
                 const retrivedThen = (x as APromise).then;
-                if (typeof retrivedThen === "function") {
+                if (Object.prototype.toString.call(retrivedThen) === "[object Function]") {
+                    let hasResolve = false;
                     try {
-                        this.then.call(x, this.resolvePromise, this.rejectPromise);
+                        retrivedThen.call(x, (y: unknown) => {
+                            if (hasResolve) return;
+                            hasResolve = true;
+                            this.resolve(y);
+                        },
+                        (r: unknown) => {
+                            if (hasResolve) return;
+                            hasResolve = true;
+                            this.reject(r);
+                        });
                     }
                     catch (e) {
-                        if (!this.#hasCalled) {
+                        if (!hasResolve) {
                             this.reject(e);
                         }
                     }
@@ -104,18 +112,6 @@ export class APromise {
 
     reject = (x: unknown) => {
         this.onRejected(x);
-    };
-
-    resolvePromise = (y: unknown) => {
-        if (this.#hasCalled) return;
-        this.#hasCalled = true;
-        this.resolve(y);
-    };
-
-    rejectPromise = (r: unknown) => {
-        if (this.#hasCalled) return;
-        this.#hasCalled = true;
-        this.reject(r);
     };
 
     then = (onFulfilled?: (value: unknown) => void | null, onRejected?: (value: unknown) => void | null) => {
@@ -181,7 +177,7 @@ export class APromise {
                             }
                         }
                         else {
-                            resolve(this.#reason);
+                            reject(this.#reason);
                         }
                     });
                 });
