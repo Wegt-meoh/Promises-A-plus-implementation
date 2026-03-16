@@ -20,8 +20,8 @@
 
 * run custom test cases in index.ts
 
-    `pnpm run start`
+    `pnpm start`
 
 * run official test cases
 
-    `pnpm run test`
+    `pnpm test`
